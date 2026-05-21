@@ -13,8 +13,8 @@ import { AsistenciaService, Asistencia } from "../services/asistencia.service";
   <div class="header-card" *ngIf="pais">
     <img [src]="pais.flags.png" alt="bandera" class="bandera"/>
     <div>
-      <h1>Sistema de Análisis de Asistencia Laboral</h1>
-      <p>País: {{ pais.name.common }} | Región: {{ pais.region }} | Capital: {{ pais.capital?.[0] }}</p>
+      <h1>Sistema de Analisis de Asistencia Laboral</h1>
+      <p>Pais: {{ pais.name.common }} | Region: {{ pais.region }} | Capital: {{ pais.capital?.[0] }}</p>
     </div>
   </div>
   <div class="card">
@@ -22,8 +22,8 @@ import { AsistenciaService, Asistencia } from "../services/asistencia.service";
     <div class="form-grid">
       <input [(ngModel)]="form.empleado" placeholder="Nombre empleado" />
       <input [(ngModel)]="form.mes" placeholder="Mes (ej: Enero 2025)" />
-      <input [(ngModel)]="form.diasAsistidos" type="number" placeholder="Días asistidos" />
-      <input [(ngModel)]="form.totalDias" type="number" placeholder="Total días laborales" />
+      <input [(ngModel)]="form.diasAsistidos" type="number" placeholder="Dias asistidos" />
+      <input [(ngModel)]="form.totalDias" type="number" placeholder="Total dias laborales" />
     </div>
     <button class="btn-primary" (click)="agregar()">+ Agregar</button>
   </div>
@@ -36,38 +36,36 @@ import { AsistenciaService, Asistencia } from "../services/asistencia.service";
     <h2>Resumen</h2>
     <p>Mes con mayor ausentismo: <strong>{{ resumen.mesMaxAusentismo }}</strong></p>
     <div class="stats">
-      <div class="stat excelente">Excelente (>=90%): {{ contarClasificacion("Excelente") }}</div>
-      <div class="stat regular">Regular (>=75%): {{ contarClasificacion("Regular") }}</div>
-      <div class="stat irregular">Irregular (<75%): {{ contarClasificacion("Irregular") }}</div>
+      <div class="stat excelente">Excelente (90%+): {{ contarClasificacion("Excelente") }}</div>
+      <div class="stat regular">Regular (75%+): {{ contarClasificacion("Regular") }}</div>
+      <div class="stat irregular">Irregular (-75%): {{ contarClasificacion("Irregular") }}</div>
     </div>
   </div>
   <div class="card" *ngIf="datos.length">
     <h2>Asistencia vs Faltas</h2>
-    <div class="chart-container">
-      <div class="bar-chart">
-        <div class="bar-group" *ngFor="let d of datos">
-          <div class="bar-label">{{ d.empleado }}</div>
-          <div class="bars">
-            <div class="bar asistido" [style.height.px]="(d.diasAsistidos / d.totalDias) * 120"></div>
-            <div class="bar falta" [style.height.px]="(d.faltas / d.totalDias) * 120"></div>
-          </div>
-          <div class="bar-pct">{{ d.porcentaje }}%</div>
+    <div class="bar-chart">
+      <div class="bar-group" *ngFor="let d of datos">
+        <div class="bar-label">{{ d.empleado }}</div>
+        <div class="bars">
+          <div class="bar asistido" [style.height.px]="getAltura(d.diasAsistidos, d.totalDias)"></div>
+          <div class="bar falta" [style.height.px]="getAltura(getFaltas(d), d.totalDias)"></div>
         </div>
+        <div class="bar-pct">{{ d.porcentaje }}%</div>
       </div>
-      <div class="leyenda">
-        <span class="leg-asistido">Asistido</span>
-        <span class="leg-falta">Faltas</span>
-      </div>
+    </div>
+    <div class="leyenda">
+      <span class="leg-asistido">Asistido</span>
+      <span class="leg-falta">Faltas</span>
     </div>
   </div>
   <div class="card" *ngIf="datos.length">
     <h2>Tendencia de Asistencia</h2>
     <div class="line-chart-wrap">
-      <svg width="100%" [attr.viewBox]="'0 0 ' + (datos.length * 100 + 60) + ' 160'">
+      <svg width="100%" [attr.viewBox]="getViewBox()">
         <polyline [attr.points]="getLinePoints()" fill="none" stroke="#6366f1" stroke-width="2.5"/>
         <circle *ngFor="let p of getPoints()" [attr.cx]="p.x" [attr.cy]="p.y" r="5" fill="#6366f1"/>
         <text *ngFor="let p of getPoints(); let i = index" [attr.x]="p.x" [attr.y]="p.y - 10" text-anchor="middle" font-size="11" fill="#6366f1">{{ datos[i].porcentaje }}%</text>
-        <text *ngFor="let p of getPoints(); let i = index" [attr.x]="p.x" [attr.y]="150" text-anchor="middle" font-size="9" fill="#888">{{ datos[i].mes.substring(0,3) }}</text>
+        <text *ngFor="let p of getPoints(); let i = index" [attr.x]="p.x" [attr.y]="150" text-anchor="middle" font-size="9" fill="#888">{{ getMes(i) }}</text>
       </svg>
     </div>
   </div>
@@ -84,8 +82,8 @@ import { AsistenciaService, Asistencia } from "../services/asistencia.service";
           <td>{{ d.diasAsistidos }}</td>
           <td>{{ d.totalDias }}</td>
           <td>{{ d.porcentaje }}%</td>
-          <td><span class="badge" [class]="getClase(d.clasificacion)">{{ d.clasificacion }}</span></td>
-          <td><button class="btn-delete" (click)="eliminar(d._id)">X</button></td>
+          <td><span class="badge" [ngClass]="getClase(d.clasificacion || '')">{{ d.clasificacion }}</span></td>
+          <td><button class="btn-delete" (click)="eliminar(d._id || '')">X</button></td>
         </tr>
       </tbody>
     </table>
@@ -110,7 +108,7 @@ import { AsistenciaService, Asistencia } from "../services/asistencia.service";
     .excelente{background:#dcfce7;color:#166534}
     .regular{background:#fef9c3;color:#854d0e}
     .irregular{background:#fee2e2;color:#991b1b}
-    .bar-chart{display:flex;gap:1.5rem;align-items:flex-end;padding:1rem 0;min-height:160px}
+    .bar-chart{display:flex;gap:1.5rem;align-items:flex-end;padding:1rem 0;min-height:160px;overflow-x:auto}
     .bar-group{display:flex;flex-direction:column;align-items:center;gap:4px}
     .bar-label{font-size:.75rem;text-align:center;color:#555;max-width:80px}
     .bars{display:flex;gap:4px;align-items:flex-end}
@@ -161,6 +159,7 @@ export class AsistenciaComponent implements OnInit {
   }
 
   eliminar(id: string) {
+    if (!id) return;
     this.svc.delete(id).subscribe(() => this.cargarDatos());
   }
 
@@ -179,6 +178,14 @@ export class AsistenciaComponent implements OnInit {
     reader.readAsText(file);
   }
 
+  getFaltas(d: Asistencia): number {
+    return (d.faltas !== undefined) ? d.faltas : d.totalDias - d.diasAsistidos;
+  }
+
+  getAltura(valor: number, total: number): number {
+    return total > 0 ? (valor / total) * 120 : 0;
+  }
+
   contarClasificacion(c: string) {
     return this.datos.filter(d => d.clasificacion === c).length;
   }
@@ -189,10 +196,18 @@ export class AsistenciaComponent implements OnInit {
     return "irregular";
   }
 
+  getMes(i: number): string {
+    return this.datos[i]?.mes?.substring(0, 3) || "";
+  }
+
+  getViewBox(): string {
+    return "0 0 " + (this.datos.length * 100 + 60) + " 160";
+  }
+
   getPoints() {
     return this.datos.map((d, i) => ({
       x: 50 + i * 100,
-      y: 130 - (+d.porcentaje! / 100) * 110
+      y: 130 - (+( d.porcentaje || "0") / 100) * 110
     }));
   }
 
