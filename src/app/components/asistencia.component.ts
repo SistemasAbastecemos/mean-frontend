@@ -3,6 +3,7 @@ import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { HttpClient } from "@angular/common/http";
 import { AsistenciaService, Asistencia } from "../services/asistencia.service";
+import { AuthService } from "../services/auth.service";
 
 @Component({
   selector: "app-asistencia",
@@ -18,15 +19,13 @@ import { AsistenciaService, Asistencia } from "../services/asistencia.service";
     </div>
   </div>
 
-  <!-- Tabs -->
   <div class="tabs">
-    <button [class.active]="seccion === 'registro'" (click)="seccion='registro'">Registrar</button>
+    <button *ngIf="auth.isAdmin()" [class.active]="seccion === 'registro'" (click)="seccion='registro'">Registrar</button>
     <button [class.active]="seccion === 'historico'" (click)="seccion='historico'">Historico por Empleado</button>
-    <button [class.active]="seccion === 'resumen'" (click)="seccion='resumen'">Resumen General</button>
+    <button *ngIf="auth.isAdmin()" [class.active]="seccion === 'resumen'" (click)="seccion='resumen'">Resumen General</button>
   </div>
 
-  <!-- REGISTRO -->
-  <ng-container *ngIf="seccion === 'registro'">
+  <ng-container *ngIf="seccion === 'registro' && auth.isAdmin()">
     <div class="card">
       <h2>Registrar Asistencia</h2>
       <div class="alert error" *ngIf="errorForm">{{ errorForm }}</div>
@@ -38,8 +37,8 @@ import { AsistenciaService, Asistencia } from "../services/asistencia.service";
           <option *ngFor="let m of meses" [value]="m">{{ m }}</option>
         </select>
         <input [(ngModel)]="form.anio" type="number" placeholder="Ano (ej: 2026)" />
-        <input [(ngModel)]="form.diasAsistidos" type="number" placeholder="Dias asistidos" min="0" />
-        <input [(ngModel)]="form.totalDias" type="number" placeholder="Total dias laborales" min="1" />
+        <input [(ngModel)]="form.diasAsistidos" type="number" placeholder="Dias asistidos" min="0" max="31" />
+        <input [(ngModel)]="form.totalDias" type="number" placeholder="Total dias laborales (max 31)" min="1" max="31" />
       </div>
       <button class="btn-primary" (click)="agregar()">+ Agregar</button>
     </div>
@@ -50,7 +49,6 @@ import { AsistenciaService, Asistencia } from "../services/asistencia.service";
     </div>
   </ng-container>
 
-  <!-- HISTORICO -->
   <ng-container *ngIf="seccion === 'historico'">
     <div class="card">
       <h2>Consulta Historica por Empleado</h2>
@@ -95,8 +93,7 @@ import { AsistenciaService, Asistencia } from "../services/asistencia.service";
     </div>
   </ng-container>
 
-  <!-- RESUMEN GENERAL -->
-  <ng-container *ngIf="seccion === 'resumen'">
+  <ng-container *ngIf="seccion === 'resumen' && auth.isAdmin()">
     <div class="card resumen" *ngIf="resumen">
       <h2>Resumen General</h2>
       <p>Mes con mayor ausentismo: <strong>{{ resumen.mesMaxAusentismo }}</strong></p>
@@ -176,8 +173,7 @@ import { AsistenciaService, Asistencia } from "../services/asistencia.service";
     .hint{font-size:.8rem;color:#888;margin-bottom:.5rem}
     .alert{padding:.75rem 1rem;border-radius:8px;margin-bottom:1rem;font-size:.9rem}
     .error{background:#fee2e2;color:#991b1b}
-    .stats{display:flex;gap:1rem;flex-wrap:wrap;margin-top:.75rem}
-    .resumen-historico{display:flex;gap:1rem;flex-wrap:wrap;margin-top:1rem}
+    .stats,.resumen-historico{display:flex;gap:1rem;flex-wrap:wrap;margin-top:.75rem}
     .stat{padding:.5rem 1rem;border-radius:8px;font-size:.9rem}
     .excelente{background:#dcfce7;color:#166534}
     .regular{background:#fef9c3;color:#854d0e}
@@ -204,7 +200,7 @@ import { AsistenciaService, Asistencia } from "../services/asistencia.service";
   `]
 })
 export class AsistenciaComponent implements OnInit {
-  seccion = "registro";
+  seccion = "historico";
   form: Asistencia = { empleado: "", identificacion: "", mes: "", anio: new Date().getFullYear(), diasAsistidos: 0, totalDias: 0 };
   filtro = { identificacion: "", nombre: "", anio: 0 };
   datos: Asistencia[] = [];
@@ -217,9 +213,10 @@ export class AsistenciaComponent implements OnInit {
   meses = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
   anios = [2023, 2024, 2025, 2026, 2027];
 
-  constructor(private svc: AsistenciaService, private http: HttpClient) {}
+  constructor(private svc: AsistenciaService, private http: HttpClient, public auth: AuthService) {}
 
   ngOnInit() {
+    if (this.auth.isAdmin()) this.seccion = "registro";
     this.cargarDatos();
     this.http.get<any[]>("https://restcountries.com/v3.1/alpha/co")
       .subscribe(r => this.pais = r[0]);
@@ -242,8 +239,8 @@ export class AsistenciaComponent implements OnInit {
       this.errorForm = "Los dias asistidos no pueden ser negativos.";
       return;
     }
-    if (this.form.totalDias <= 0) {
-      this.errorForm = "El total de dias debe ser mayor a 0.";
+    if (this.form.totalDias <= 0 || this.form.totalDias > 31) {
+      this.errorForm = "El total de dias debe estar entre 1 y 31.";
       return;
     }
     if (this.form.diasAsistidos > this.form.totalDias) {
