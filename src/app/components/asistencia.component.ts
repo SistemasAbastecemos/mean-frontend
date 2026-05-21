@@ -25,6 +25,7 @@ import { AuthService } from "../services/auth.service";
     <button *ngIf="auth.isAdmin()" [class.active]="seccion === 'resumen'" (click)="seccion='resumen'">Resumen General</button>
   </div>
 
+  <!-- REGISTRO -->
   <ng-container *ngIf="seccion === 'registro' && auth.isAdmin()">
     <div class="card">
       <h2>Registrar Asistencia</h2>
@@ -49,6 +50,7 @@ import { AuthService } from "../services/auth.service";
     </div>
   </ng-container>
 
+  <!-- HISTORICO -->
   <ng-container *ngIf="seccion === 'historico'">
     <div class="card">
       <h2>Consulta Historica por Empleado</h2>
@@ -60,7 +62,11 @@ import { AuthService } from "../services/auth.service";
           <option *ngFor="let a of anios" [value]="a">{{ a }}</option>
         </select>
       </div>
-      <button class="btn-primary" (click)="buscarHistorico()">Buscar</button>
+      <div class="btn-group">
+        <button class="btn-primary" (click)="buscarHistorico()">Buscar</button>
+        <button class="btn-export" *ngIf="historico.length" (click)="exportarCSV(historico, 'historico_asistencia')">Exportar CSV</button>
+        <button class="btn-excel" *ngIf="historico.length" (click)="exportarExcel(historico, 'historico_asistencia')">Exportar Excel</button>
+      </div>
     </div>
     <div class="card" *ngIf="historico.length">
       <h2>Resultados: {{ historico.length }} registro(s)</h2>
@@ -93,6 +99,7 @@ import { AuthService } from "../services/auth.service";
     </div>
   </ng-container>
 
+  <!-- RESUMEN GENERAL -->
   <ng-container *ngIf="seccion === 'resumen' && auth.isAdmin()">
     <div class="card resumen" *ngIf="resumen">
       <h2>Resumen General</h2>
@@ -101,6 +108,10 @@ import { AuthService } from "../services/auth.service";
         <div class="stat excelente">Excelente (90%+): {{ contarClasificacion("Excelente") }}</div>
         <div class="stat regular">Regular (75%+): {{ contarClasificacion("Regular") }}</div>
         <div class="stat irregular">Irregular (-75%): {{ contarClasificacion("Irregular") }}</div>
+      </div>
+      <div class="btn-group" style="margin-top:1rem">
+        <button class="btn-export" *ngIf="datos.length" (click)="exportarCSV(datos, 'resumen_asistencia')">Exportar CSV</button>
+        <button class="btn-excel" *ngIf="datos.length" (click)="exportarExcel(datos, 'resumen_asistencia')">Exportar Excel</button>
       </div>
     </div>
     <div class="card" *ngIf="datos.length">
@@ -168,7 +179,10 @@ import { AuthService } from "../services/auth.service";
     h2{margin:0 0 1rem;font-size:1.1rem;color:#1e1b4b}
     .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1rem}
     input:not([type=file]),select{width:100%;padding:.6rem .8rem;border:1px solid #ddd;border-radius:8px;font-size:.95rem;box-sizing:border-box}
+    .btn-group{display:flex;gap:.75rem;flex-wrap:wrap;margin-top:.5rem}
     .btn-primary{background:#6366f1;color:#fff;border:none;padding:.6rem 1.5rem;border-radius:8px;cursor:pointer}
+    .btn-export{background:#059669;color:#fff;border:none;padding:.6rem 1.2rem;border-radius:8px;cursor:pointer}
+    .btn-excel{background:#16a34a;color:#fff;border:none;padding:.6rem 1.2rem;border-radius:8px;cursor:pointer}
     .btn-delete{background:#fee2e2;color:#dc2626;border:none;padding:.3rem .6rem;border-radius:6px;cursor:pointer}
     .hint{font-size:.8rem;color:#888;margin-bottom:.5rem}
     .alert{padding:.75rem 1rem;border-radius:8px;margin-bottom:1rem;font-size:.9rem}
@@ -280,6 +294,45 @@ export class AsistenciaComponent implements OnInit {
       this.svc.bulk(registros).subscribe(() => this.cargarDatos());
     };
     reader.readAsText(file);
+  }
+
+  exportarCSV(datos: Asistencia[], nombre: string) {
+    const headers = "Empleado,Identificacion,Mes,Ano,Dias Asistidos,Total Dias,Porcentaje,Clasificacion";
+    const filas = datos.map(d =>
+      `${d.empleado},${d.identificacion},${d.mes},${d.anio},${d.diasAsistidos},${d.totalDias},${d.porcentaje}%,${d.clasificacion}`
+    );
+    const csv = [headers, ...filas].join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = nombre + ".csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  exportarExcel(datos: Asistencia[], nombre: string) {
+    const headers = ["Empleado","Identificacion","Mes","Ano","Dias Asistidos","Total Dias","Porcentaje","Clasificacion"];
+    const filas = datos.map(d => [
+      d.empleado, d.identificacion, d.mes, d.anio,
+      d.diasAsistidos, d.totalDias, d.porcentaje + "%", d.clasificacion
+    ]);
+    let xml = `<?xml version="1.0"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+<Worksheet ss:Name="Asistencia"><Table>`;
+    const toRow = (cols: any[]) =>
+      "<Row>" + cols.map(c => `<Cell><Data ss:Type="String">${c}</Data></Cell>`).join("") + "</Row>";
+    xml += toRow(headers);
+    filas.forEach(f => xml += toRow(f));
+    xml += "</Table></Worksheet></Workbook>";
+    const blob = new Blob([xml], { type: "application/vnd.ms-excel;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = nombre + ".xls";
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   contarClasificacion(c: string) { return this.datos.filter(d => d.clasificacion === c).length; }
