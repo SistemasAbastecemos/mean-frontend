@@ -1,6 +1,4 @@
-// src/environments/environment.prod.ts  (Railway)
-export const environment = {
+﻿export const environment = {
   production: true,
-  // Railway inyecta la URL real; ajustar antes del deploy
-  apiUrl: 'https://TU-BACKEND.up.railway.app/api'
+  apiUrl: 'https://mean-backend-production-52e7.up.railway.app/api'
 };
