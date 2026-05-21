@@ -19,11 +19,15 @@ import { AsistenciaService, Asistencia } from "../services/asistencia.service";
   </div>
   <div class="card">
     <h2>Registrar Asistencia</h2>
+    <div class="alert error" *ngIf="errorForm">{{ errorForm }}</div>
     <div class="form-grid">
       <input [(ngModel)]="form.empleado" placeholder="Nombre empleado" />
-      <input [(ngModel)]="form.mes" placeholder="Mes (ej: Enero 2025)" />
-      <input [(ngModel)]="form.diasAsistidos" type="number" placeholder="Dias asistidos" />
-      <input [(ngModel)]="form.totalDias" type="number" placeholder="Total dias laborales" />
+      <select [(ngModel)]="form.mes">
+        <option value="">-- Selecciona mes --</option>
+        <option *ngFor="let m of meses" [value]="m">{{ m }}</option>
+      </select>
+      <input [(ngModel)]="form.diasAsistidos" type="number" placeholder="Dias asistidos" min="0" />
+      <input [(ngModel)]="form.totalDias" type="number" placeholder="Total dias laborales" min="1" />
     </div>
     <button class="btn-primary" (click)="agregar()">+ Agregar</button>
   </div>
@@ -45,7 +49,7 @@ import { AsistenciaService, Asistencia } from "../services/asistencia.service";
     <h2>Asistencia vs Faltas</h2>
     <div class="bar-chart">
       <div class="bar-group" *ngFor="let d of datos">
-        <div class="bar-label">{{ d.empleado }}</div>
+        <div class="bar-label">{{ d.empleado }}<br/><small>{{ d.mes }}</small></div>
         <div class="bars">
           <div class="bar asistido" [style.height.px]="getAltura(d.diasAsistidos, d.totalDias)"></div>
           <div class="bar falta" [style.height.px]="getAltura(getFaltas(d), d.totalDias)"></div>
@@ -54,8 +58,8 @@ import { AsistenciaService, Asistencia } from "../services/asistencia.service";
       </div>
     </div>
     <div class="leyenda">
-      <span class="leg-asistido">Asistido</span>
-      <span class="leg-falta">Faltas</span>
+      <span class="leg-asistido">&#9632; Asistido</span>
+      <span class="leg-falta">&#9632; Faltas</span>
     </div>
   </div>
   <div class="card" *ngIf="datos.length">
@@ -99,10 +103,12 @@ import { AsistenciaService, Asistencia } from "../services/asistencia.service";
     .card{background:#fff;border-radius:12px;padding:1.5rem;margin-bottom:1.5rem;box-shadow:0 2px 8px rgba(0,0,0,.08)}
     h2{margin:0 0 1rem;font-size:1.1rem;color:#1e1b4b}
     .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1rem}
-    input:not([type=file]){width:100%;padding:.6rem .8rem;border:1px solid #ddd;border-radius:8px;font-size:.95rem;box-sizing:border-box}
+    input:not([type=file]),select{width:100%;padding:.6rem .8rem;border:1px solid #ddd;border-radius:8px;font-size:.95rem;box-sizing:border-box}
     .btn-primary{background:#6366f1;color:#fff;border:none;padding:.6rem 1.5rem;border-radius:8px;cursor:pointer}
     .btn-delete{background:#fee2e2;color:#dc2626;border:none;padding:.3rem .6rem;border-radius:6px;cursor:pointer}
     .hint{font-size:.8rem;color:#888;margin-bottom:.5rem}
+    .alert{padding:.75rem 1rem;border-radius:8px;margin-bottom:1rem;font-size:.9rem}
+    .error{background:#fee2e2;color:#991b1b}
     .stats{display:flex;gap:1rem;flex-wrap:wrap;margin-top:.75rem}
     .stat{padding:.5rem 1rem;border-radius:8px;font-size:.9rem}
     .excelente{background:#dcfce7;color:#166534}
@@ -134,6 +140,16 @@ export class AsistenciaComponent implements OnInit {
   datos: Asistencia[] = [];
   resumen: any = null;
   pais: any = null;
+  errorForm = "";
+
+  meses = [
+    "Enero 2025","Febrero 2025","Marzo 2025","Abril 2025",
+    "Mayo 2025","Junio 2025","Julio 2025","Agosto 2025",
+    "Septiembre 2025","Octubre 2025","Noviembre 2025","Diciembre 2025",
+    "Enero 2026","Febrero 2026","Marzo 2026","Abril 2026",
+    "Mayo 2026","Junio 2026","Julio 2026","Agosto 2026",
+    "Septiembre 2026","Octubre 2026","Noviembre 2026","Diciembre 2026"
+  ];
 
   constructor(private svc: AsistenciaService, private http: HttpClient) {}
 
@@ -151,7 +167,23 @@ export class AsistenciaComponent implements OnInit {
   }
 
   agregar() {
-    if (!this.form.empleado || !this.form.mes) return;
+    this.errorForm = "";
+    if (!this.form.empleado || !this.form.mes) {
+      this.errorForm = "Completa todos los campos.";
+      return;
+    }
+    if (this.form.diasAsistidos < 0) {
+      this.errorForm = "Los dias asistidos no pueden ser negativos.";
+      return;
+    }
+    if (this.form.totalDias <= 0) {
+      this.errorForm = "El total de dias debe ser mayor a 0.";
+      return;
+    }
+    if (this.form.diasAsistidos > this.form.totalDias) {
+      this.errorForm = "Los dias asistidos no pueden superar el total de dias laborales.";
+      return;
+    }
     this.svc.create(this.form).subscribe(() => {
       this.form = { empleado: "", mes: "", diasAsistidos: 0, totalDias: 0 };
       this.cargarDatos();
@@ -207,7 +239,7 @@ export class AsistenciaComponent implements OnInit {
   getPoints() {
     return this.datos.map((d, i) => ({
       x: 50 + i * 100,
-      y: 130 - (+( d.porcentaje || "0") / 100) * 110
+      y: 130 - (+(d.porcentaje || "0") / 100) * 110
     }));
   }
 
