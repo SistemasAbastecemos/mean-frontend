@@ -1,12 +1,14 @@
 ﻿import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 export interface Asistencia {
   _id?: string;
   empleado: string;
+  identificacion: string;
   mes: string;
+  anio: number;
   diasAsistidos: number;
   totalDias: number;
   porcentaje?: string;
@@ -38,5 +40,13 @@ export class AsistenciaService {
 
   getResumen(): Observable<any> {
     return this.http.get(`${this.url}/resumen`);
+  }
+
+  getHistorico(filtros: { identificacion?: string; nombre?: string; anio?: number }): Observable<Asistencia[]> {
+    let params = new HttpParams();
+    if (filtros.identificacion) params = params.set('identificacion', filtros.identificacion);
+    if (filtros.nombre) params = params.set('nombre', filtros.nombre);
+    if (filtros.anio) params = params.set('anio', filtros.anio.toString());
+    return this.http.get<Asistencia[]>(`${this.url}/historico`, { params });
   }
 }
